@@ -1,0 +1,133 @@
+<canvas id="canvas" width="500" height="500" style="border: 1px solid #000"></canvas>
+<div id="chat-box" style="width: 500px; height: 100px; overflow: auto"></div>
+<form id="chat-form">
+    <input id="chat-input" type="text" placeholder="Chat..."/>
+</form>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.2.0/socket.io.min.js"></script>
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const socket = io();
+    const chatBox = document.getElementById('chat-box');
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    ctx.font = "30px Arial";
+
+    socket.on('newPosition', function(data){
+        ctx.clearRect(0, 0, 500, 500);
+        for(let i = 0; i < data.player.length; i++){
+            ctx.fillText(data.player[i].number, data.player[i].x, data.player[i].y);
+        }
+        for(let i = 0; i < data.bullet.length; i++){
+            ctx.fillRect(data.bullet[i].x, data.bullet[i].y, 10, 10);
+        }
+    });
+
+    socket.on('addToChat', function(data){
+        chatBox.appendChild(newMessage(data));
+    });
+    socket.on('evalAnswer', function(data){
+        console.log(data);
+    });
+
+    function newMessage(text){
+        const p = document.createElement('p');
+        p.innerText = text;
+        return p;
+    }
+
+    function handleSubmit(e){
+        e.preventDefault();
+        const trimValue = chatInput.value.trim();
+        if(trimValue !== ''){
+            if(trimValue[0] === '/')
+                socket.emit('evalServer', trimValue.slice(1));
+            else
+                socket.emit('sendMsgToServer', trimValue);
+            chatInput.value = '';
+        }
+    }
+
+    chatForm.addEventListener('submit', handleSubmit);
+    document.addEventListener('keydown', function(e){
+        switch(e.code){
+            case 'KeyA':
+                socket.emit('keyDown', {
+                    inputId: 'left',
+                    state: true
+                });
+                break;
+            case 'KeyD':
+                socket.emit('keyDown', {
+                    inputId: 'right',
+                    state: true
+                });
+                break;
+            case 'KeyW': 
+                socket.emit('keyDown', {
+                    inputId: 'up',
+                    state: true
+                });
+                break;
+            case 'KeyS':
+                socket.emit('keyDown', {
+                    inputId: 'down',
+                    state: true
+                }); 
+                break;
+            case 'Space':
+                break;
+        }
+    });
+    document.addEventListener('keyup', function(e){
+        switch(e.code){
+            case 'KeyA':
+                socket.emit('keyUp', {
+                    inputId: 'left',
+                    state: false
+                });
+                break;
+            case 'KeyD':
+                socket.emit('keyUp', {
+                    inputId: 'right',
+                    state: false
+                });
+                break;
+            case 'KeyW': 
+                socket.emit('keyUp', {
+                    inputId: 'up',
+                    state: false
+                });
+                break;
+            case 'KeyS':
+                socket.emit('keyUp', {
+                    inputId: 'down',
+                    state: false
+                }); 
+                break;
+        }
+    });
+    document.addEventListener('mousedown', function(e){
+        socket.emit('mouseDown', {
+            inputId: 'attack',
+            state: true
+        })
+    });
+    document.addEventListener('mouseup', function(e){
+        socket.emit('mouseUp', {
+            inputId: 'attack',
+            state: false
+        })
+    })
+    document.addEventListener('mousemove', function(e){
+        const x = e.clientX - 8;
+        const y = e.clientY - 8;
+        socket.emit('mouseMove', {
+            inputId: 'mousePos',
+            state: {
+                x: x,
+                y: y
+            }
+        });
+    });
+</script>
