@@ -1,13 +1,118 @@
-<canvas id="canvas" width="500" height="500" style="border: 1px solid #000"></canvas>
-<div id="chat-box" style="width: 500px; height: 100px; overflow: auto"></div>
-<form id="chat-form">
-    <input id="chat-input" type="text" placeholder="Chat..."/>
+<form id="signDiv">
+    <label>
+        <span>Username:</span>
+        <input id="username" type="text"/>
+    </label>
+    <label>
+        <span>Password:</span>
+        <input id="password" type="password"/>
+    </label>
+    <div class="btn-container">
+        <button id="signInBtn" type="submit">Sign In</button>
+        <button id="signUpBtn" type="button">Sign Up</button>
+    </div>
 </form>
+<div id="gameDiv">
+    <canvas id="canvas" width="500" height="500" style="border: 1px solid #000"></canvas>
+    <div id="chat-box" style="width: 500px; height: 100px; overflow: auto"></div>
+    <form id="chat-form">
+        <input id="chat-input" type="text" placeholder="Chat..."/>
+    </form>
+</div>
+<style>
+    
+    #gameDiv{
+        display: none;
+    }
+    #gameDiv.show{
+        display: block;
+    }
+    #signDiv{
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, .1), 0 2px 15px -3px rgba(0, 0, 0, .1);
+        padding: 20px 30px;
+        border-radius: 5px;
+    }
+    label{
+        margin-bottom: 8px;
+        display: flex;
+        width: 100%;
+    }
+    #signDiv input{
+        width: 100%;
+        outline: none;
+    }
+    span{
+        width: 100px;
+    }
+    button{
+        padding: 8px 14px;
+        background: darksalmon;
+        font-weight: bold;
+        font-size: 12px;
+        color: #fff;
+        letter-spacing: 1px;
+        border: 0;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    #signDiv.hide{
+        display: none;
+    }
+</style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.2.0/socket.io.min.js"></script>
 <script>
+    const socket = io();
+    //sign
+    const signDiv = document.getElementById('signDiv');
+    const username = document.getElementById('username');
+    const password = document.getElementById('password');
+    const signInBtn = document.getElementById('signInBtn');
+    const signUpBtn = document.getElementById('signUpBtn');
+    const gameDiv = document.getElementById('gameDiv');
+
+    signDiv.addEventListener('submit', function(e){
+        e.preventDefault();
+        socket.emit('signIn', {
+            username: username.value,
+            password: password.value
+        });
+    })
+
+    signUpBtn.addEventListener('click', function(){
+        socket.emit('signUp', {
+            username: username.value,
+            password: password.value
+        });
+    });
+
+    socket.on('signInResponse', function(data){
+        if(data.success){
+            signDiv.className = 'hide';
+            gameDiv.className = 'show';
+        }
+        else{
+            alert('Sign in fail');
+            password.value = '';
+        }
+    });
+    socket.on('signUpResponse', function(data){
+        if(data.success){
+            alert('Sign up successful');
+        }
+        else{
+            alert('Sign up fail');
+        }
+    });
+    //game
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    const socket = io();
     const chatBox = document.getElementById('chat-box');
     const chatForm = document.getElementById('chat-form');
     const chatInput = document.getElementById('chat-input');

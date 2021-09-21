@@ -197,14 +197,58 @@ Bullet.update = function(){
     }
     return pack;
 }
+const USERS = {
+    'nam': '321',
+    'thu': '123'
+}
 const DEBUG = true;
+
+function isValidUser({username, password}, callback){
+    setTimeout(()=>{
+        callback(USERS[username] === password)
+    }, 10);
+}
+function isValidUserRegistry({username, password}, callback){
+    setTimeout(()=>{
+        callback(USERS[username] !== undefined && password.trim() !== '');
+    }, 10);
+}
+function addUser({username, password}, callback){
+    setTimeout(()=>{
+        USERS[username] = password;
+        callback();
+    }, 10);
+}
 const io = require('socket.io')(server, {});
 io.sockets.on('connection', function(socket){
     socket.id  = Math.random();
     SOCKET_LIST[socket.id] = socket;
-    console.log('New connection, ID: ', socket.id);
 
-    Player.onConnect(socket);
+    socket.on('signIn', function(data){
+        isValidUser(data, function(res){
+            if(res === true){
+                console.log('New connection, ID: ', socket.id);
+                Player.onConnect(socket);
+                socket.emit('signInResponse', {success: true});
+            }
+            else{
+                socket.emit('signInResponse', {success: false});
+            }
+        })
+    });
+
+    socket.on('signUp', function(data){
+        isValidUserRegistry(data, function(res){
+            if(res === false){
+                addUser(data, function(){
+                    socket.emit('signUpResponse', {success: true});
+                });
+            }
+            else{
+                socket.emit('signUpResponse', {success: false});
+            }
+        })
+    });
 
     socket.on('disconnect', function(){
         delete SOCKET_LIST[socket.id];
@@ -217,6 +261,7 @@ io.sockets.on('connection', function(socket){
             SOCKET_LIST[id].emit('addToChat', message);
         }
     });
+
     socket.on('evalServer', function(data){
         if(!DEBUG)
             return;
