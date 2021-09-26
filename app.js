@@ -1,6 +1,3 @@
-const mongojs = require('mongojs');
-const db = mongojs('localhost:27017/myGame', ['account', 'progress']);
-
 const express = require('express');
 const app = express();
 const server = require('http').Server(app);
@@ -45,10 +42,7 @@ const Player = function(id){
     self.down = false;
     self.attack = false;
     self.speed = 8;
-    self.mousePos = {x: 0, y: 0};
-    self.hp = 10;
-    self.hpMax = 10;
-    self.score = 0;
+    self.mousePos = {x: 0, y: 0}
 
     self.update = function(){
         self.updateSpeed();
@@ -84,31 +78,7 @@ const Player = function(id){
             self.spY = 0;
     }
 
-    self.getInitPack = function(){
-        return{
-            id: self.id,
-            x: self.x,
-            y: self.y,
-            number: self.number,
-            hp: self.hp,
-            hpMax: self.hpMax,
-            score: self.score
-        }
-    }
-
-    self.getUpdatePack = function(){
-        return{
-            id: self.id,
-            x: self.x,
-            y: self.y,
-            number: self.number,
-            score: self.score,
-            hp: self.hp,
-        }
-    }
-
     Player.list[self.id] = self;
-    initPack.player.push(self.getInitPack());
     return self;
 }
 Player.list = {};
@@ -166,23 +136,8 @@ Player.onConnect = function(socket){
         if(data.inputId === 'mousePos')
             player.mousePos = data.state;
     });
-
-    
-    
-    socket.emit('init', {
-        player: Player.getAllInitPack(),
-        bullet: Bullet.getAllInitPack()
-    })
 };
-Player.getAllInitPack = function(){
-    const currentPlayers = [];
-    for(const i in Player.list){
-        currentPlayers.push(Player.list[i].getInitPack());
-    }
-    return currentPlayers;
-}
 Player.onDisconnect = function(socket){
-    removePack.player.push(socket.id);
     delete Player.list[socket.id];
 }
 Player.update = function(){
@@ -190,7 +145,11 @@ Player.update = function(){
     for(const id in Player.list){
         const player = Player.list[id];
         player.update();
-        pack.push(player.getUpdatePack());        
+        pack.push({
+            x: player.x,
+            y: player.y,
+            number: player.number
+        });        
     }
     return pack;
 }
@@ -212,48 +171,14 @@ const Bullet = function(angle, parentId){
         for(const i in Player.list){
             const p = Player.list[i];
             if(self.parentId !== p.id && self.getDistance(p) < 12){
-                p.hp -= 1;
-                if(p.hp <= 0){
-                    p.hp = p.hpMax;
-                    p.x = Math.random() * 500;
-                    p.y = Math.random() * 500;
-                    const shooter = Player.list[self.parentId];
-                    if(shooter){
-                        shooter.score += 1;
-                    }
-                }
                 self.toRemove = true;
             }
         }
     }
-    self.getInitPack = function(){
-        return{
-            id: self.id,
-            x: self.x,
-            y: self.y,
-        }
-    }
-
-    self.getUpdatePack = function(){
-        return{
-            id: self.id,
-            x: self.x,
-            y: self.y,
-        }
-    }
-
     Bullet.list[self.id] = self;
-    initPack.bullet.push(self.getInitPack());
     return self;
 }
 Bullet.list = {};
-Bullet.getAllInitPack = function(){
-    const currentBullets = [];
-    for(const i in Bullet.list){
-        currentBullets.push(Bullet.list[i].getInitPack());
-    }
-    return currentBullets;
-}
 Bullet.update = function(){
     
     const pack = [];
@@ -261,45 +186,38 @@ Bullet.update = function(){
         const bullet = Bullet.list[id];
         bullet.update();
         if(bullet.toRemove){
-            removePack.bullet.push(bullet.id);
             delete Bullet.list[id];
         }
         else{
-            pack.push(bullet.getUpdatePack());    
+            pack.push({
+                x: bullet.x,
+                y: bullet.y,
+            });    
         }
     }
     return pack;
 }
-// const USERS = {
-//     'nam': '321',
-//     'thu': '123'
-// }
+const USERS = {
+    'nam': '321',
+    'thu': '123'
+}
 const DEBUG = true;
 
 function isValidUser({username, password}, callback){
-    db.account.find({username: username, password: password}, function(err, res){
-        if(res.length> 0){
-            callback(true);
-        }
-        else{
-            callback(false);
-        }
-    });
+    setTimeout(()=>{
+        callback(USERS[username] === password)
+    }, 10);
 }
-function isValidUserRegistry({username}, callback){
-    db.account.find({username: username}, function(err, res){
-        if(res.length> 0){
-            callback(true);
-        }
-        else{
-            callback(false);
-        }
-    });
+function isValidUserRegistry({username, password}, callback){
+    setTimeout(()=>{
+        callback(USERS[username] !== undefined && password.trim() !== '');
+    }, 10);
 }
 function addUser({username, password}, callback){
-    db.account.insert({username: username, password: password}, function(err){
+    setTimeout(()=>{
+        USERS[username] = password;
         callback();
-    });
+    }, 10);
 }
 const io = require('socket.io')(server, {});
 io.sockets.on('connection', function(socket){
@@ -352,9 +270,6 @@ io.sockets.on('connection', function(socket){
     });
 });
 
-const initPack = {player: [], bullet: []};
-const removePack = {player: [], bullet: []};
-
 setInterval(function(){
     const pack = {
         player: Player.update(),
@@ -362,13 +277,6 @@ setInterval(function(){
     }
     for(const id in SOCKET_LIST){
         const socket = SOCKET_LIST[id];
-        socket.emit('init', initPack);
-        socket.emit('update', pack);
-        socket.emit('remove', removePack);
+        socket.emit('newPosition', pack);
     }
-
-    initPack.player = [];
-    initPack.bullet = [];
-    removePack.player = [];
-    removePack.bullet = [];
 }, 20);
